@@ -10,7 +10,7 @@
   changed_when: false
 
 - name: Install Argo CD
-  ansible.builtin.command: kubectl apply -f "https://raw.githubusercontent.com/argoproj/argo-cd/v{{ argocd_version }}/manifests/install.yaml"
+  ansible.builtin.command: kubectl --namespace argocd apply -f "https://raw.githubusercontent.com/argoproj/argo-cd/v{{ argocd_version }}/manifests/install.yaml"
   environment: "{{ argocd_env }}"
   register: argocd_install
   retries: 3
@@ -19,7 +19,7 @@
   changed_when: true
 
 - name: Wait for the application controller
-  ansible.builtin.command: kubectl --namespace argocd rollout status deployment/argocd-application-controller --timeout=600s
+  ansible.builtin.command: kubectl --namespace argocd rollout status statefulset/argocd-application-controller --timeout=600s
   environment: "{{ argocd_env }}"
   changed_when: false
 
@@ -31,12 +31,18 @@
 - name: Expose the API server as NodePort {{ argocd_nodeport_https }}
   ansible.builtin.shell: |
     kubectl --namespace argocd patch service argocd-server --type merge -p \
-      '{"spec":{"type":"NodePort","ports":[{"name":"https","port":443,"nodePort":{{ argocd_nodeport_https }}}]}}'
+      '{"spec":{"type":"NodePort","ports":[{"name":"https","port":443,"targetPort":8080,"nodePort":{{ argocd_nodeport_https }}}]}}'
   environment: "{{ argocd_env }}"
   changed_when: true
 
+- name: Create the argo-rollouts namespace
+  ansible.builtin.shell: |
+    kubectl create namespace argo-rollouts --dry-run=client -o yaml | kubectl apply -f -
+  environment: "{{ argocd_env }}"
+  changed_when: false
+
 - name: Install the Argo Rollouts controller
-  ansible.builtin.command: kubectl apply -f "https://github.com/argoproj/argo-rollouts/releases/download/{{ rollouts_version }}/install.yaml"
+  ansible.builtin.command: kubectl --namespace argo-rollouts apply -f "https://github.com/argoproj/argo-rollouts/releases/download/{{ rollouts_version }}/install.yaml"
   environment: "{{ argocd_env }}"
   register: rollouts_install
   retries: 3
@@ -45,7 +51,7 @@
   changed_when: true
 
 - name: Wait for the Rollouts controller
-  ansible.builtin.command: kubectl --namespace argo-rollouts rollout status deployment/argo-rollouts-controller --timeout=600s
+  ansible.builtin.command: kubectl --namespace argo-rollouts rollout status deployment/argo-rollouts --timeout=600s
   environment: "{{ argocd_env }}"
   changed_when: false
 
