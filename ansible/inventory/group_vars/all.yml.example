@@ -1,0 +1,8 @@
+kind_version: "v0.30.0"
+kubectl_version: "1.37.0"
+argocd_version: "3.0.3"
+k6_version: "0.57.0"
+
+kind_cluster_name: "wab"
+argocd_nodeport_https: 30443
+rollouts_version: "v1.8.3"

@@ -1,0 +1,49 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: shipping-cost-api
+  labels:
+    app: shipping-cost-api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: shipping-cost-api
+  template:
+    metadata:
+      labels:
+        app: shipping-cost-api
+    spec:
+      containers:
+        - name: api
+          image: localhost/shipping-cost-api:v1
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: APP_VERSION
+              value: v1
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 8080
+            periodSeconds: 1
+            failureThreshold: 1
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 8080
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 128Mi
+  strategy:
+    blueGreen:
+      activeService: shipping-cost-api
+      previewService: shipping-cost-api-preview
+      scaleDownDelaySeconds: 10

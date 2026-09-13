@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: shipping-cost-api-preview
+  labels:
+    app: shipping-cost-api
+spec:
+  type: ClusterIP
+  selector:
+    app: shipping-cost-api
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080

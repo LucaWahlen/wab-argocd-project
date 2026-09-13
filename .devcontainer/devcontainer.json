@@ -1,0 +1,31 @@
+{
+  "name": "wab-argocd",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "runArgs": ["--userns=keep-id", "--security-opt", "label=disable"],
+  "mounts": [
+    "source=${localEnv:HOME}/.ssh,target=/home/vscode/.ssh,type=bind,readonly",
+    "source=${localEnv:HOME}/.gitconfig,target=/home/vscode/.gitconfig,type=bind",
+    "source=${localEnv:HOME}/dotfiles,target=/home/vscode/dotfiles,type=bind",
+    "source=${localEnv:HOME}/.config/opencode,target=/home/vscode/.config/opencode,type=bind",
+    "source=${localEnv:HOME}/.local/share/opencode,target=/home/vscode/.local/share/opencode,type=bind",
+    "source=${localEnv:HOME}/.agents/skills,target=/home/vscode/.agents/skills,type=bind"
+  ],
+  "remoteEnv": {
+    "TF_VAR_proxmox_endpoint": "${localEnv:TF_VAR_proxmox_endpoint}",
+    "TF_VAR_proxmox_api_token": "${localEnv:TF_VAR_proxmox_api_token}",
+    "TF_VAR_proxmox_node": "${localEnv:TF_VAR_proxmox_node}",
+    "TF_VAR_storage_pool": "${localEnv:TF_VAR_storage_pool}",
+    "TF_VAR_vm_ip_address": "${localEnv:TF_VAR_vm_ip_address}",
+    "TF_VAR_vm_gateway": "${localEnv:TF_VAR_vm_gateway}",
+    "TF_VAR_ssh_public_key": "${localEnv:TF_VAR_ssh_public_key}"
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": ["golang.go", "sst-dev.opencode"]
+    }
+  },
+  "remoteUser": "vscode",
+  "postCreateCommand": "tofu version && ansible --version | head -1 && kubectl version --client && kustomize version && argocd version --client | head -1 && go version && k6 version && opencode --version"
+}

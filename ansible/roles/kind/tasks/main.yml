@@ -1,0 +1,47 @@
+- name: Install the kind cluster config
+  ansible.builtin.copy:
+    content: "{{ lookup('ansible.builtin.file', playbook_dir ~ '/../../cluster/kind/kind-config.yaml') }}"
+    dest: /root/kind-config.yaml
+    mode: "0644"
+
+- name: List existing kind clusters
+  ansible.builtin.command: kind get clusters
+  environment:
+    KIND_EXPERIMENTAL_PROVIDER: podman
+  register: kind_clusters
+  changed_when: false
+
+- name: Create the kind cluster
+  ansible.builtin.command:
+    argv:
+      - kind
+      - create
+      - cluster
+      - --name
+      - "{{ kind_cluster_name }}"
+      - --config
+      - /root/kind-config.yaml
+      - --wait
+      - 180s
+  environment:
+    KIND_EXPERIMENTAL_PROVIDER: podman
+  when: kind_cluster_name not in kind_clusters.stdout_lines
+
+- name: Wait for the node to be Ready
+  ansible.builtin.command: kubectl wait --for=condition=Ready node --all --timeout=180s
+  environment:
+    KUBECONFIG: /root/.kube/config
+  changed_when: false
+
+- name: Read the kind kubeconfig
+  ansible.builtin.slurp:
+    src: /root/.kube/config
+  register: kubeconfig_raw
+
+- name: Write the local kubeconfig with the VM address
+  become: false
+  delegate_to: localhost
+  ansible.builtin.copy:
+    content: "{{ kubeconfig_raw.content | b64decode | regex_replace('(0\\.0\\.0\\.0|127\\.0\\.0\\.1)', ansible_host) }}"
+    dest: "{{ playbook_dir }}/../kubeconfig"
+    mode: "0600"

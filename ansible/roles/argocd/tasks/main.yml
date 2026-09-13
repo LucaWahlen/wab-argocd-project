@@ -1,0 +1,64 @@
+- name: Point controller tooling at the cluster
+  ansible.builtin.set_fact:
+    argocd_env:
+      KUBECONFIG: "{{ playbook_dir }}/../kubeconfig"
+
+- name: Create the argocd namespace
+  ansible.builtin.shell: |
+    kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -
+  environment: "{{ argocd_env }}"
+  changed_when: false
+
+- name: Install Argo CD
+  ansible.builtin.command: kubectl apply -f "https://raw.githubusercontent.com/argoproj/argo-cd/v{{ argocd_version }}/manifests/install.yaml"
+  environment: "{{ argocd_env }}"
+  register: argocd_install
+  retries: 3
+  delay: 10
+  until: argocd_install.rc == 0
+  changed_when: true
+
+- name: Wait for the application controller
+  ansible.builtin.command: kubectl --namespace argocd rollout status deployment/argocd-application-controller --timeout=600s
+  environment: "{{ argocd_env }}"
+  changed_when: false
+
+- name: Wait for the API server
+  ansible.builtin.command: kubectl --namespace argocd rollout status deployment/argocd-server --timeout=600s
+  environment: "{{ argocd_env }}"
+  changed_when: false
+
+- name: Expose the API server as NodePort {{ argocd_nodeport_https }}
+  ansible.builtin.shell: |
+    kubectl --namespace argocd patch service argocd-server --type merge -p \
+      '{"spec":{"type":"NodePort","ports":[{"name":"https","port":443,"nodePort":{{ argocd_nodeport_https }}}]}}'
+  environment: "{{ argocd_env }}"
+  changed_when: true
+
+- name: Install the Argo Rollouts controller
+  ansible.builtin.command: kubectl apply -f "https://github.com/argoproj/argo-rollouts/releases/download/{{ rollouts_version }}/install.yaml"
+  environment: "{{ argocd_env }}"
+  register: rollouts_install
+  retries: 3
+  delay: 10
+  until: rollouts_install.rc == 0
+  changed_when: true
+
+- name: Wait for the Rollouts controller
+  ansible.builtin.command: kubectl --namespace argo-rollouts rollout status deployment/argo-rollouts-controller --timeout=600s
+  environment: "{{ argocd_env }}"
+  changed_when: false
+
+- name: Read the initial admin password
+  ansible.builtin.shell: |
+    kubectl --namespace argocd get secret argocd-initial-admin-secret \
+      -o jsonpath='{.data.password}' | base64 -d
+  environment: "{{ argocd_env }}"
+  register: argocd_admin_password
+  changed_when: false
+
+- name: Argo CD access
+  ansible.builtin.debug:
+    msg:
+      - "UI:      https://{{ hostvars['wab'].ansible_host }}:8443 (self-signed, admin user)"
+      - "CLI:     argocd login {{ hostvars['wab'].ansible_host }}:8443 --insecure --username admin --password {{ argocd_admin_password.stdout }}"

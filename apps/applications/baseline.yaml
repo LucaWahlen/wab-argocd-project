@@ -1,0 +1,19 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: quoter-baseline
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/LucaWahlen/wab-argocd-project.git
+    targetRevision: main
+    path: apps/overlays/baseline
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: wab
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true

@@ -1,0 +1,24 @@
+---
+- name: Wait for the WAB VM to finish booting (cloud-init + sshd)
+  hosts: wab
+  gather_facts: false
+  tasks:
+    - name: Wait for SSH connection
+      ansible.builtin.wait_for_connection:
+        connect_timeout: 10
+        sleep: 5
+        timeout: 300
+
+- name: Bootstrap the measurement rig (tools + kind cluster)
+  hosts: wab
+  become: true
+  roles:
+    - rig
+    - kind
+
+- name: Bootstrap Argo CD
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  roles:
+    - argocd
