@@ -10,7 +10,7 @@ resource "proxmox_virtual_environment_vm" "wab_node" {
   name          = var.vm_name
   node_name     = var.proxmox_node
   vm_id         = var.vm_id
-  tags          = ["wab", "kind", "opentofu"]
+  tags          = ["kind", "opentofu"]
   scsi_hardware = "virtio-scsi-single"
 
   cpu {
