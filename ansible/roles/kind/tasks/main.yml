@@ -1,6 +1,6 @@
 - name: Install the kind cluster config
-  ansible.builtin.copy:
-    content: "{{ lookup('ansible.builtin.file', playbook_dir ~ '/../../cluster/kind/kind-config.yaml') }}"
+  ansible.builtin.template:
+    src: "{{ playbook_dir }}/../../cluster/kind/kind-config.yaml.j2"
     dest: /root/kind-config.yaml
     mode: "0644"
 
