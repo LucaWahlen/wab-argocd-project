@@ -1,8 +1,9 @@
 VM_IP := $(shell cd opentofu/proxmox-vm && tofu output -raw vm_ip_address 2>/dev/null)
 API_VERSION ?= v1
-SSH := ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ConnectTimeout=10 ubuntu@$(VM_IP)
+SSH := ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o LogLevel=ERROR -o ConnectTimeout=10 ubuntu@$(VM_IP)
+SCP := scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o LogLevel=ERROR
 
-.PHONY: init plan apply destroy bootstrap build-api deploy-apps argocd-password reset-cluster
+.PHONY: init plan apply destroy bootstrap build-api deploy-apps argocd-password smoke reset-cluster
 
 init:
 	cd opentofu/proxmox-vm && tofu init
@@ -29,6 +30,10 @@ deploy-apps:
 argocd-password:
 	@kubectl --kubeconfig ansible/kubeconfig --namespace argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d; echo
 
+smoke:
+	$(SCP) experiments/k6/smoke.js ubuntu@$(VM_IP):/tmp/smoke.js
+	$(SSH) "k6 run /tmp/smoke.js && rm -f /tmp/smoke.js"
+
 reset-cluster:
-	$(SSH) "sudo kind delete clusters --name wab && sudo rm -f /root/.kube/config"
+	$(SSH) "sudo env KIND_EXPERIMENTAL_PROVIDER=podman kind delete clusters wab || true && sudo rm -f /root/.kube/config"
 	$(MAKE) bootstrap
