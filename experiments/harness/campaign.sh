@@ -13,7 +13,7 @@ switch_variant() {
     baseline) OTHER="quoter-rollout" ;;
     rollout) OTHER="quoter-baseline" ;;
   esac
-  if $SSH "argocd app list -o name 2>/dev/null | grep -qx \"$OTHER\""; then
+  if $SSH "argocd app list -o name 2>/dev/null | grep -q '/$OTHER$'"; then
     log "deleting $OTHER"
     $SSH "argocd app delete $OTHER --yes --grpc-web" || true
     sleep 5
@@ -21,7 +21,8 @@ switch_variant() {
   kubectl --kubeconfig "$REPO_DIR/ansible/kubeconfig" apply -f "$REPO_DIR/apps/applications" > /dev/null
   $SSH "argocd app sync $TARGET --grpc-web > /dev/null 2>&1"
   $SSH "argocd app wait $TARGET --health --timeout 300 --grpc-web > /dev/null 2>&1"
-  log "variant active: $TARGET"
+  WORKLOADS=$(kubectl --kubeconfig "$REPO_DIR/ansible/kubeconfig" get deployment,rollout -n wab --no-headers 2>/dev/null | awk '{print $1"/"$2}')
+  log "variant active: $TARGET (workloads: $WORKLOADS)"
 }
 
 cd "$REPO_DIR"
