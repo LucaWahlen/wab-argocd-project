@@ -23,7 +23,7 @@ spec:
               name: http
           env:
             - name: APP_VERSION
-              value: v1
+              value: v2
             - name: APP_START_DELAY_SECONDS
               value: "10"
             - name: APP_SHUTDOWN_DELAY_SECONDS
