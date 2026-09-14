@@ -29,10 +29,10 @@ $SSH "mkdir -p ~/wab-results/$RUN_ID"
 $SCP "$REPO_DIR/experiments/harness/load.js" "$REPO_DIR/experiments/harness/sampler.sh" "ubuntu@$VM_IP:~/wab-results/$RUN_ID/"
 
 log "starting k6 load ($K6_DURATION s)"
-$SSH "cd ~/wab-results/$RUN_ID && nohup env TARGET_RPS=500 RUN_DURATION=${K6_DURATION}s k6 run --out json=k6.json load.js > k6-stdout.txt 2>&1 < /dev/null & echo \$! > k6.pid"
+$SSH "cd ~/wab-results/$RUN_ID; nohup env TARGET_RPS=500 RUN_DURATION=${K6_DURATION}s k6 run --out json=k6.json load.js > k6-stdout.txt 2>&1 < /dev/null & echo \$! > k6.pid"
 
 log "starting pod sampler"
-$SSH "cd ~/wab-results/$RUN_ID && nohup bash sampler.sh sampler.csv $((K6_DURATION + 20)) > /dev/null 2>&1 < /dev/null & echo \$! > sampler.pid"
+$SSH "cd ~/wab-results/$RUN_ID; nohup bash sampler.sh sampler.csv $((K6_DURATION + 20)) > /dev/null 2>&1 < /dev/null & echo \$! > sampler.pid"
 
 sleep 20
 T0=$(date +%s.%N)
