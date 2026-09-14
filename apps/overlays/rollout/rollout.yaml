@@ -49,7 +49,8 @@ spec:
               cpu: 500m
               memory: 128Mi
   strategy:
-    blueGreen:
-      activeService: shipping-cost-api
-      previewService: shipping-cost-api-preview
-      scaleDownDelaySeconds: 10
+    canary:
+      steps:
+        - setWeight: 50
+        - pause:
+            duration: 20s
