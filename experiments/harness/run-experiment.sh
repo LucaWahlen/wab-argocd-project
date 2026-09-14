@@ -112,7 +112,7 @@ if [ "$SCENARIO" = "success" ]; then
 else
   log "letting faulty v2 run for 40s"
   sleep 40
-  git -C "$REPO_DIR" revert -q --no-edit HEAD
+  git -C "$REPO_DIR" revert --no-edit HEAD
   git -C "$REPO_DIR" push -q origin main
   T_REVERT=$(date +%s.%N)
   log "revert pushed (t_revert=$T_REVERT)"

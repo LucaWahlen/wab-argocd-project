@@ -50,7 +50,7 @@ EOF
 git add -A && git commit -q -m "experiment: prestudy canary strategy" && git push -q origin main
 switch_variant rollout
 bash experiments/harness/run-experiment.sh rollout success pre-canary
-git revert -q --no-edit HEAD && git push -q origin main
+git revert --no-edit HEAD && git push -q origin main
 switch_variant rollout
 bash experiments/harness/run-experiment.sh rollout success pre-bluegreen
 
