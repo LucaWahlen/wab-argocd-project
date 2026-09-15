@@ -6,4 +6,4 @@ resources:
   - preview-service.yaml
 images:
   - name: localhost/shipping-cost-api
-    newTag: v2
+    newTag: v1
