@@ -78,6 +78,36 @@ for r in d.get("items", []):
 ' "$1"
 }
 
+rollout_active_image() {
+  local cur
+  cur=$(rollout_active_hash)
+  [ -z "$cur" ] && { echo ""; return; }
+  $KUBECTL get rs -n wab -o json 2>/dev/null | python3 -c '
+import json, sys
+cur = sys.argv[1]
+d = json.load(sys.stdin)
+for r in d.get("items", []):
+    if r["metadata"]["name"].endswith("-" + cur):
+        print(r["spec"]["template"]["spec"]["containers"][0]["image"].rsplit(":", 1)[-1]); break
+' "$cur"
+}
+
+cleanup_stale_rs() {
+  local names
+  names=$($KUBECTL get rs -n wab -o json 2>/dev/null | python3 -c '
+import json, sys
+d = json.load(sys.stdin)
+for r in d.get("items", []):
+    img = r["spec"]["template"]["spec"]["containers"][0]["image"].rsplit(":", 1)[-1]
+    if img != "v1":
+        print(r["metadata"]["name"])
+')
+  for rs in $names; do
+    log "cleaning stale RS $rs"
+    $KUBECTL delete rs "$rs" -n wab --wait=false >/dev/null 2>&1 || true
+  done
+}
+
 rollout_healthy() {
   $KUBECTL get rollout shipping-cost-api -n wab -o json 2>/dev/null | python3 -c '
 import json, sys
@@ -91,16 +121,15 @@ print("yes" if h and h[-1].get("status") == "True" else "no")
 }
 
 wait_active_version() {
-  local want="$1" timeout_s="$2" start target cur
+  local want="$1" timeout_s="$2" start cur
   start=$(date +%s)
   while true; do
-    target=$(rs_hash_for_version "$want")
-    cur=$(rollout_active_hash)
-    if [ -n "$target" ] && [ "$cur" = "$target" ] && [ "$(rollout_healthy)" = "yes" ]; then
+    cur=$(rollout_active_image)
+    if [ "$cur" = "$want" ] && [ "$(rollout_healthy)" = "yes" ]; then
       return 0
     fi
     if [ $(( $(date +%s) - start )) -gt "$timeout_s" ]; then
-      log "TIMEOUT waiting for active=$want (target=$target current=$cur)"
+      log "TIMEOUT waiting for active=$want (current active image=$cur)"
       return 1
     fi
     sleep 2
@@ -121,6 +150,8 @@ if ! git -C "$REPO_DIR" diff --cached --quiet; then
   git -C "$REPO_DIR" push -q origin "$BRANCH"
 fi
 $SSH "argocd app sync $APP --grpc-web > /dev/null 2>&1" || true
+wait_active_version v1 300
+cleanup_stale_rs
 wait_images v1 300
 $SSH "argocd app wait $APP --health --timeout 300 --grpc-web > /dev/null 2>&1"
 log "cluster at v1, healthy"
