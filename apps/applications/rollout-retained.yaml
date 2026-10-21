@@ -1,0 +1,19 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: quoter-rollout-retained
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/LucaWahlen/wab-argocd-project.git
+    targetRevision: experiment/retained-v1
+    path: apps/overlays/rollout
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: wab
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true

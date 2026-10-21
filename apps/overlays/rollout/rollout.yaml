@@ -52,4 +52,4 @@ spec:
     blueGreen:
       activeService: shipping-cost-api
       previewService: shipping-cost-api-preview
-      scaleDownDelaySeconds: 10
+      scaleDownDelaySeconds: 300
