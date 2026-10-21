@@ -55,6 +55,58 @@ wait_images() {
   done
 }
 
+rollout_active_hash() {
+  $KUBECTL get rollout shipping-cost-api -n wab -o json 2>/dev/null | python3 -c '
+import json, sys
+try:
+    d = json.load(sys.stdin)
+except Exception:
+    print(""); sys.exit()
+print(d.get("status", {}).get("currentPodHash", ""))
+'
+}
+
+rs_hash_for_version() {
+  $KUBECTL get rs -n wab -o json 2>/dev/null | python3 -c '
+import json, sys
+want = sys.argv[1]
+d = json.load(sys.stdin)
+for r in d.get("items", []):
+    img = r["spec"]["template"]["spec"]["containers"][0]["image"].rsplit(":", 1)[-1]
+    if img == want:
+        print(r["metadata"]["name"].rsplit("-", 1)[-1]); break
+' "$1"
+}
+
+rollout_healthy() {
+  $KUBECTL get rollout shipping-cost-api -n wab -o json 2>/dev/null | python3 -c '
+import json, sys
+try:
+    d = json.load(sys.stdin)
+except Exception:
+    print("no"); sys.exit()
+h = [c for c in d.get("status", {}).get("conditions", []) if c.get("type") == "Healthy"]
+print("yes" if h and h[-1].get("status") == "True" else "no")
+'
+}
+
+wait_active_version() {
+  local want="$1" timeout_s="$2" start target cur
+  start=$(date +%s)
+  while true; do
+    target=$(rs_hash_for_version "$want")
+    cur=$(rollout_active_hash)
+    if [ -n "$target" ] && [ "$cur" = "$target" ] && [ "$(rollout_healthy)" = "yes" ]; then
+      return 0
+    fi
+    if [ $(( $(date +%s) - start )) -gt "$timeout_s" ]; then
+      log "TIMEOUT waiting for active=$want (target=$target current=$cur)"
+      return 1
+    fi
+    sleep 2
+  done
+}
+
 log "ensuring argocd login"
 $SSH 'PASS=$(sudo kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d); argocd login localhost:8443 --insecure --username admin --password "$PASS" --grpc-web >/dev/null 2>&1'
 
@@ -106,7 +158,7 @@ T_SYNC=$(date +%s.%N)
 log "sync triggered (t_sync=$T_SYNC)"
 
 if [ "$SCENARIO" = "success" ]; then
-  wait_images v2 300
+  wait_active_version v2 300
   $SSH "argocd app wait $APP --health --timeout 300 --grpc-web > /dev/null 2>&1"
   T_HEALTHY=$(date +%s.%N)
   log "rollout healthy (t_healthy=$T_HEALTHY)"
@@ -121,7 +173,7 @@ else
   $SSH "argocd app sync $APP --grpc-web > /dev/null 2>&1" || true
   T_SYNC2=$(date +%s.%N)
   log "rollback sync (t_sync2=$T_SYNC2)"
-  wait_images v1 300
+  wait_active_version v1 300
   $SSH "argocd app wait $APP --health --timeout 300 --grpc-web > /dev/null 2>&1"
   T_STABLE=$(date +%s.%N)
   log "stable again (t_stable=$T_STABLE)"
